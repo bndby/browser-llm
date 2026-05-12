@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Built-in AI Chat</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="chat-app">
+      <h1>Чат с LLM в браузере</h1>
+      <p class="hint">
+        Используется встроенный AI Chrome (Prompt API). Работает только в
+        поддерживаемых версиях Chrome.
+      </p>
+
+      <section class="model-status">
+        <span>Статус модели:</span>
+        <strong id="model-availability" class="availability unknown">проверка...</strong>
+      </section>
+
+      <section id="status" class="status">Проверка поддержки API...</section>
+      <section id="download-panel" class="download-panel hidden">
+        <p id="download-hint" class="download-hint"></p>
+        <div id="download-progress-wrap" class="download-progress hidden">
+          <progress id="download-progress" value="0" max="100"></progress>
+          <span id="download-progress-text">0%</span>
+        </div>
+        <button id="download-btn" type="button" class="download-btn hidden">
+          Скачать модель
+        </button>
+      </section>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="chat-form" class="chat-form">
+        <label for="prompt-input" class="sr-only">Ваше сообщение</label>
+        <input
+          id="prompt-input"
+          type="text"
+          placeholder="Напишите вопрос..."
+          autocomplete="off"
+          required
+        />
+        <button id="send-btn" type="submit" disabled>Отправить</button>
+      </form>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
