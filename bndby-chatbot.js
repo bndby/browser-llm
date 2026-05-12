@@ -10,6 +10,8 @@ template.innerHTML = `
   <style>
     :host {
       display: block;
+      width: 100%;
+      height: 100%;
       color-scheme: dark;
       font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       color: #eaeaea;
@@ -20,39 +22,79 @@ template.innerHTML = `
     }
 
     .chat-app {
-      width: min(760px, 92vw);
+      width: 100%;
+      max-width: 100%;
+      height: min(600px, 100dvh);
+      max-height: 600px;
       background: #1b1b1b;
       border: 1px solid #2d2d2d;
       border-radius: 16px;
       padding: 16px;
       display: grid;
+      grid-template-rows: auto 1fr auto auto auto;
       gap: 12px;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 1.35rem;
+    .metrics-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
-    .hint {
+    .metrics-title {
       margin: 0;
-      color: #a7a7a7;
+      font-size: 0.68rem;
+      color: #8e8e8e;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
-    .status {
-      font-size: 0.95rem;
-      color: #a9d3ff;
+    .metric-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #2f2f2f;
+      background: #151515;
+      line-height: 1.15;
+    }
+
+    .metric-key {
+      font-size: 0.68rem;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .metric-value {
+      font-size: 0.78rem;
+      color: #e9f3ff;
+      font-weight: 600;
+    }
+
+    .metrics-details {
+      border: 1px solid #2f2f2f;
+      border-radius: 10px;
+      background: #151515;
+      padding: 6px 8px;
+    }
+
+    .metrics-details > summary {
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.8rem;
+      color: #d3d3d3;
+    }
+
+    .metrics-content {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
     }
 
     .hidden {
       display: none !important;
-    }
-
-    .model-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.95rem;
     }
 
     .availability {
@@ -122,7 +164,7 @@ template.innerHTML = `
     }
 
     .messages {
-      height: 380px;
+      min-height: 0;
       overflow-y: auto;
       border: 1px solid #303030;
       border-radius: 12px;
@@ -175,8 +217,33 @@ template.innerHTML = `
 
     .chat-form {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       gap: 8px;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 22px;
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: 0.84rem;
+    }
+
+    .status-label {
+      color: #b8b8b8;
+      flex: 0 0 auto;
+    }
+
+    .status {
+      color: #a9d3ff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 0.84rem;
     }
 
     input,
@@ -215,17 +282,43 @@ template.innerHTML = `
   </style>
 
   <main class="chat-app">
-    <h1 class="title">Чат с LLM в браузере</h1>
-    <p class="hint">
-      Используется встроенный AI Chrome (Prompt API). Работает только в поддерживаемых версиях Chrome.
-    </p>
+    <details class="metrics-details">
+      <summary>Метрики</summary>
+      <div class="metrics-content">
+        <p class="metrics-title">Текущий ответ</p>
+        <section class="metrics-bar" aria-live="polite">
+          <span class="metric-chip" title="Время генерации текущего ответа (мс)" aria-label="Время генерации текущего ответа"><span class="metric-key">t</span><strong id="metric-latency" class="metric-value">—</strong></span>
+          <span class="metric-chip" title="Токены во входном запросе текущего ответа" aria-label="Токены входа текущего ответа"><span class="metric-key">in</span><strong id="metric-input-tokens" class="metric-value">—</strong></span>
+          <span class="metric-chip" title="Токены в ответе модели для текущего запроса" aria-label="Токены выхода текущего ответа"><span class="metric-key">out</span><strong id="metric-output-tokens" class="metric-value">—</strong></span>
+          <span class="metric-chip" title="Суммарные токены текущего запроса (вход + выход)" aria-label="Суммарные токены текущего ответа"><span class="metric-key">sum</span><strong id="metric-total-tokens" class="metric-value">—</strong></span>
+          <span class="metric-chip" title="Текущая занятость контекста сессии: использовано / доступно" aria-label="Текущий размер контекста сессии"><span class="metric-key">ctx</span><strong id="metric-context" class="metric-value">—</strong></span>
+        </section>
+        <p class="metrics-title">Сессия</p>
+        <section class="metrics-bar" aria-live="polite">
+          <span class="metric-chip" title="Количество запросов в текущей сессии" aria-label="Число запросов сессии"><span class="metric-key">req</span><strong id="session-metric-requests" class="metric-value">0</strong></span>
+          <span class="metric-chip" title="Суммарное время генерации всех ответов в сессии (мс)" aria-label="Суммарное время генерации сессии"><span class="metric-key">Σt</span><strong id="session-metric-latency" class="metric-value">0 мс</strong></span>
+          <span class="metric-chip" title="Суммарные входные токены за всю сессию" aria-label="Суммарные входные токены сессии"><span class="metric-key">Σin</span><strong id="session-metric-input-tokens" class="metric-value">0</strong></span>
+          <span class="metric-chip" title="Суммарные выходные токены за всю сессию" aria-label="Суммарные выходные токены сессии"><span class="metric-key">Σout</span><strong id="session-metric-output-tokens" class="metric-value">0</strong></span>
+          <span class="metric-chip" title="Сумма входных и выходных токенов за всю сессию" aria-label="Суммарные токены сессии"><span class="metric-key">Σsum</span><strong id="session-metric-total-tokens" class="metric-value">0</strong></span>
+        </section>
+      </div>
+    </details>
 
-    <section class="model-status">
-      <span>Статус модели:</span>
+    <section id="messages" class="messages" aria-live="polite"></section>
+
+    <form id="chat-form" class="chat-form">
+      <label for="prompt-input" class="sr-only">Ваше сообщение</label>
+      <input id="prompt-input" type="text" placeholder="Напишите вопрос..." autocomplete="off" required />
+      <button id="send-btn" type="submit" disabled>Отправить</button>
+      <button id="reset-session-btn" type="button" disabled>Сброс сессии</button>
+    </form>
+
+    <section class="status-line">
+      <span class="status-label">Модель:</span>
       <strong id="model-availability" class="availability unknown">проверка...</strong>
+      <span id="status" class="status">Проверка поддержки API...</span>
     </section>
 
-    <section id="status" class="status">Проверка поддержки API...</section>
     <section id="download-panel" class="download-panel hidden">
       <p id="download-hint" class="download-hint"></p>
       <div id="download-progress-wrap" class="download-progress hidden">
@@ -234,14 +327,6 @@ template.innerHTML = `
       </div>
       <button id="download-btn" type="button" class="download-btn hidden">Скачать модель</button>
     </section>
-
-    <section id="messages" class="messages" aria-live="polite"></section>
-
-    <form id="chat-form" class="chat-form">
-      <label for="prompt-input" class="sr-only">Ваше сообщение</label>
-      <input id="prompt-input" type="text" placeholder="Напишите вопрос..." autocomplete="off" required />
-      <button id="send-btn" type="submit" disabled>Отправить</button>
-    </form>
   </main>
 `;
 
@@ -254,12 +339,23 @@ class BndbyChatbot extends HTMLElement {
     this.downloadPercent = 0;
     this.progressTickerId = null;
     this.lastProgressAt = 0;
+    this.sessionTotals = {
+      requests: 0,
+      latencyMs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      inputApproximate: false,
+      outputApproximate: false,
+      totalApproximate: false,
+    };
 
     this.marked = null;
     this.domPurify = null;
 
     this.onDownloadClick = this.onDownloadClick.bind(this);
     this.onChatSubmit = this.onChatSubmit.bind(this);
+    this.onResetSessionClick = this.onResetSessionClick.bind(this);
   }
 
   connectedCallback() {
@@ -273,14 +369,11 @@ class BndbyChatbot extends HTMLElement {
   disconnectedCallback() {
     this.unbindEvents();
     this.stopProgressTicker();
+    this.destroySession();
   }
 
   get systemPrompt() {
     return this.getAttribute("system-prompt") || DEFAULT_SYSTEM_PROMPT;
-  }
-
-  get titleText() {
-    return this.getAttribute("title") || "Чат с LLM в браузере";
   }
 
   render() {
@@ -301,18 +394,31 @@ class BndbyChatbot extends HTMLElement {
     this.downloadProgressWrapEl = this.shadowRoot.getElementById("download-progress-wrap");
     this.downloadProgressEl = this.shadowRoot.getElementById("download-progress");
     this.downloadProgressTextEl = this.shadowRoot.getElementById("download-progress-text");
-    this.titleEl = this.shadowRoot.querySelector(".title");
-    this.titleEl.textContent = this.titleText;
+    this.metricLatencyEl = this.shadowRoot.getElementById("metric-latency");
+    this.metricInputTokensEl = this.shadowRoot.getElementById("metric-input-tokens");
+    this.metricOutputTokensEl = this.shadowRoot.getElementById("metric-output-tokens");
+    this.metricTotalTokensEl = this.shadowRoot.getElementById("metric-total-tokens");
+    this.metricContextEl = this.shadowRoot.getElementById("metric-context");
+    this.sessionMetricRequestsEl = this.shadowRoot.getElementById("session-metric-requests");
+    this.sessionMetricLatencyEl = this.shadowRoot.getElementById("session-metric-latency");
+    this.sessionMetricInputTokensEl = this.shadowRoot.getElementById("session-metric-input-tokens");
+    this.sessionMetricOutputTokensEl = this.shadowRoot.getElementById("session-metric-output-tokens");
+    this.sessionMetricTotalTokensEl = this.shadowRoot.getElementById("session-metric-total-tokens");
+    this.resetSessionBtn = this.shadowRoot.getElementById("reset-session-btn");
+    this.resetCurrentMetrics();
+    this.updateSessionMetricsView();
   }
 
   bindEvents() {
     this.downloadBtn.addEventListener("click", this.onDownloadClick);
     this.chatForm.addEventListener("submit", this.onChatSubmit);
+    this.resetSessionBtn.addEventListener("click", this.onResetSessionClick);
   }
 
   unbindEvents() {
     this.downloadBtn.removeEventListener("click", this.onDownloadClick);
     this.chatForm.removeEventListener("submit", this.onChatSubmit);
+    this.resetSessionBtn.removeEventListener("click", this.onResetSessionClick);
   }
 
   async loadMarkdownDeps() {
@@ -432,6 +538,287 @@ class BndbyChatbot extends HTMLElement {
       if (typeof chunk.content === "string") return chunk.content;
     }
     return String(chunk ?? "");
+  }
+
+  estimateTokenCount(text) {
+    if (!text) return 0;
+    return Math.max(1, Math.round(String(text).length / 4));
+  }
+
+  getSessionContextUsage() {
+    if (!this.session) return null;
+    const raw = this.session.contextUsage ?? this.session.inputUsage;
+    return typeof raw === "number" ? raw : null;
+  }
+
+  getSessionContextWindow() {
+    if (!this.session) return null;
+    const raw = this.session.contextWindow ?? this.session.inputQuota;
+    return typeof raw === "number" ? raw : null;
+  }
+
+  async measurePromptTokens(prompt) {
+    if (!this.session) {
+      return { value: this.estimateTokenCount(prompt), approximate: true };
+    }
+
+    const measureMethod =
+      this.session.measureContextUsage ?? this.session.measureInputUsage;
+
+    if (typeof measureMethod === "function") {
+      try {
+        const measured = await measureMethod.call(this.session, prompt);
+        if (typeof measured === "number" && Number.isFinite(measured)) {
+          return { value: measured, approximate: false };
+        }
+      } catch (error) {
+        // Fall back to heuristic below.
+      }
+    }
+
+    return { value: this.estimateTokenCount(prompt), approximate: true };
+  }
+
+  formatMetricNumber(value, approximate = false) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    const rounded = Math.max(0, Math.round(value));
+    return `${approximate ? "≈" : ""}${rounded}`;
+  }
+
+  formatContextMetric(usage, windowSize, approximate = false) {
+    if (
+      typeof usage !== "number" ||
+      !Number.isFinite(usage) ||
+      typeof windowSize !== "number" ||
+      !Number.isFinite(windowSize) ||
+      windowSize <= 0
+    ) {
+      return "—";
+    }
+
+    const ratio = Math.min(100, Math.max(0, Math.round((usage / windowSize) * 100)));
+    return `${approximate ? "≈" : ""}${Math.round(usage)} / ${Math.round(windowSize)} (${ratio}%)`;
+  }
+
+  setContextMetric(usage, windowSize, approximate = false) {
+    this.metricContextEl.textContent = this.formatContextMetric(
+      usage,
+      windowSize,
+      approximate
+    );
+  }
+
+  updateMetrics({
+    latencyMs,
+    inputTokens,
+    inputApproximate = false,
+    outputTokens,
+    outputApproximate = false,
+    totalTokens,
+    totalApproximate = false,
+    contextUsage,
+    contextWindow,
+    contextApproximate = false,
+  } = {}) {
+    if (latencyMs !== undefined) {
+      this.metricLatencyEl.textContent =
+        typeof latencyMs === "number" && Number.isFinite(latencyMs)
+          ? `${Math.max(0, Math.round(latencyMs))} мс`
+          : "—";
+    }
+
+    if (inputTokens !== undefined) {
+      this.metricInputTokensEl.textContent = this.formatMetricNumber(
+        inputTokens,
+        inputApproximate
+      );
+    }
+    if (outputTokens !== undefined) {
+      this.metricOutputTokensEl.textContent = this.formatMetricNumber(
+        outputTokens,
+        outputApproximate
+      );
+    }
+    if (totalTokens !== undefined) {
+      this.metricTotalTokensEl.textContent = this.formatMetricNumber(
+        totalTokens,
+        totalApproximate
+      );
+    }
+    if (contextUsage !== undefined && contextWindow !== undefined) {
+      this.setContextMetric(contextUsage, contextWindow, contextApproximate);
+    }
+  }
+
+  resetCurrentMetrics() {
+    this.updateMetrics({
+      latencyMs: null,
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      contextUsage: this.getSessionContextUsage(),
+      contextWindow: this.getSessionContextWindow(),
+    });
+  }
+
+  resetSessionTotals() {
+    this.sessionTotals = {
+      requests: 0,
+      latencyMs: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      inputApproximate: false,
+      outputApproximate: false,
+      totalApproximate: false,
+    };
+    this.updateSessionMetricsView();
+  }
+
+  updateSessionMetricsView() {
+    const totals = this.sessionTotals;
+    this.sessionMetricRequestsEl.textContent = String(totals.requests);
+    this.sessionMetricLatencyEl.textContent = `${Math.max(0, Math.round(totals.latencyMs))} мс`;
+    this.sessionMetricInputTokensEl.textContent = this.formatMetricNumber(
+      totals.inputTokens,
+      totals.inputApproximate
+    );
+    this.sessionMetricOutputTokensEl.textContent = this.formatMetricNumber(
+      totals.outputTokens,
+      totals.outputApproximate
+    );
+    this.sessionMetricTotalTokensEl.textContent = this.formatMetricNumber(
+      totals.totalTokens,
+      totals.totalApproximate
+    );
+  }
+
+  applyResponseToSessionTotals(responseMetrics) {
+    const totals = this.sessionTotals;
+    totals.requests += 1;
+    totals.latencyMs += responseMetrics.latencyMs;
+    totals.inputTokens += responseMetrics.inputTokens;
+    totals.outputTokens += responseMetrics.outputTokens;
+    totals.totalTokens += responseMetrics.totalTokens;
+    totals.inputApproximate ||= responseMetrics.inputApproximate;
+    totals.outputApproximate ||= responseMetrics.outputApproximate;
+    totals.totalApproximate ||= responseMetrics.totalApproximate;
+    this.updateSessionMetricsView();
+  }
+
+  async destroySession() {
+    if (!this.session) return;
+    const currentSession = this.session;
+    this.session = null;
+
+    if (typeof currentSession.destroy === "function") {
+      try {
+        await currentSession.destroy();
+      } catch (error) {
+        // Ignore cleanup errors.
+      }
+    }
+  }
+
+  updateLiveGenerationMetrics({
+    startedAt,
+    inputTokens,
+    inputApproximate,
+    beforeContextUsage,
+    generatedText,
+  }) {
+    const outputTokens = this.estimateTokenCount(generatedText);
+    const totalTokens = inputTokens + outputTokens;
+
+    const contextWindow = this.getSessionContextWindow();
+    const sessionContextUsage = this.getSessionContextUsage();
+
+    let contextUsage = sessionContextUsage;
+    let contextApproximate = false;
+
+    if (
+      contextUsage === null &&
+      typeof beforeContextUsage === "number" &&
+      typeof inputTokens === "number"
+    ) {
+      contextUsage = beforeContextUsage + inputTokens + outputTokens;
+      contextApproximate = true;
+    }
+
+    this.updateMetrics({
+      latencyMs: performance.now() - startedAt,
+      inputTokens,
+      inputApproximate,
+      outputTokens,
+      outputApproximate: true,
+      totalTokens,
+      totalApproximate: true,
+      contextUsage,
+      contextWindow,
+      contextApproximate,
+    });
+  }
+
+  async updateResponseMetrics({ prompt, answerText, startedAt, beforeContextUsage }) {
+    const latencyMs = performance.now() - startedAt;
+    const { value: measuredInputTokens, approximate: inputApproximate } =
+      await this.measurePromptTokens(prompt);
+    const afterContextUsage = this.getSessionContextUsage();
+    const contextWindow = this.getSessionContextWindow();
+
+    let outputTokens = null;
+    let outputApproximate = true;
+    if (
+      typeof beforeContextUsage === "number" &&
+      typeof afterContextUsage === "number" &&
+      typeof measuredInputTokens === "number"
+    ) {
+      const delta = afterContextUsage - beforeContextUsage;
+      const calculatedOutput = delta - measuredInputTokens;
+      if (calculatedOutput >= 0) {
+        outputTokens = calculatedOutput;
+        outputApproximate = false;
+      }
+    }
+
+    if (outputTokens === null) {
+      outputTokens = this.estimateTokenCount(answerText);
+      outputApproximate = true;
+    }
+
+    const totalTokens = measuredInputTokens + outputTokens;
+    const totalApproximate = inputApproximate || outputApproximate;
+
+    let contextUsage = afterContextUsage;
+    let contextApproximate = false;
+    if (
+      contextUsage === null &&
+      typeof beforeContextUsage === "number" &&
+      typeof measuredInputTokens === "number"
+    ) {
+      contextUsage = beforeContextUsage + measuredInputTokens + outputTokens;
+      contextApproximate = true;
+    }
+
+    const responseMetrics = {
+      latencyMs,
+      inputTokens: measuredInputTokens,
+      inputApproximate,
+      outputTokens,
+      outputApproximate,
+      totalTokens,
+      totalApproximate,
+      contextUsage,
+      contextWindow,
+      contextApproximate,
+    };
+
+    this.updateMetrics(responseMetrics);
+    return responseMetrics;
+  }
+
+  refreshContextMetric() {
+    this.setContextMetric(this.getSessionContextUsage(), this.getSessionContextWindow());
   }
 
   showDownloadGuidance(availability) {
@@ -554,6 +941,8 @@ class BndbyChatbot extends HTMLElement {
       this.showDownloadGuidance("available");
       this.statusEl.textContent = "Готово. Можете писать сообщение.";
       this.setUiEnabled(true);
+      this.resetSessionBtn.disabled = false;
+      this.refreshContextMetric();
       this.inputEl.focus();
     } catch (error) {
       this.stopProgressTicker();
@@ -593,9 +982,54 @@ class BndbyChatbot extends HTMLElement {
       this.session = await this.createModelSession();
       this.statusEl.textContent = "Готово. Можете писать сообщение.";
       this.setUiEnabled(true);
+      this.resetSessionBtn.disabled = false;
+      this.refreshContextMetric();
       this.inputEl.focus();
     } catch (error) {
       this.statusEl.textContent = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  async onResetSessionClick() {
+    this.setUiEnabled(false);
+    this.resetSessionBtn.disabled = true;
+    this.statusEl.textContent = "Очистка сессии...";
+    this.messagesEl.innerHTML = "";
+    this.resetCurrentMetrics();
+    this.resetSessionTotals();
+
+    try {
+      await this.destroySession();
+      const availability = await this.checkAvailability();
+
+      if (availability === "downloadable") {
+        this.statusEl.textContent =
+          "Сессия очищена. Модель нужно скачать. Нажмите «Скачать модель».";
+        return;
+      }
+
+      if (availability === "downloading") {
+        this.statusEl.textContent =
+          "Сессия очищена. Модель скачивается. Нажмите «Отслеживать загрузку».";
+        return;
+      }
+
+      if (availability !== "available") {
+        this.statusEl.textContent = `Сессия очищена. Модель недоступна (status: ${availability}).`;
+        return;
+      }
+
+      this.statusEl.textContent = "Инициализация новой сессии...";
+      this.session = await this.createModelSession();
+      this.statusEl.textContent = "Сессия очищена. Можете писать сообщение.";
+      this.setUiEnabled(true);
+      this.refreshContextMetric();
+      this.inputEl.focus();
+    } catch (error) {
+      this.statusEl.textContent =
+        error instanceof Error ? error.message : "Не удалось очистить сессию.";
+    } finally {
+      this.resetSessionBtn.disabled = false;
     }
   }
 
@@ -612,21 +1046,75 @@ class BndbyChatbot extends HTMLElement {
     this.appendMessage("user", prompt);
     this.inputEl.value = "";
     this.setUiEnabled(false);
+    this.resetSessionBtn.disabled = true;
     this.statusEl.textContent = "Модель печатает...";
     const modelMessage = this.appendMessage("model", "");
+    const startedAt = performance.now();
+    const beforeContextUsage = this.getSessionContextUsage();
+    const { value: inputTokens, approximate: inputApproximate } =
+      await this.measurePromptTokens(prompt);
+    this.updateLiveGenerationMetrics({
+      startedAt,
+      inputTokens,
+      inputApproximate,
+      beforeContextUsage,
+      generatedText: "",
+    });
+    let answerText = "";
 
     try {
       if (typeof this.session.promptStreaming === "function") {
         let streamedText = "";
+        let lastMetricsAt = 0;
         for await (const chunk of this.session.promptStreaming(prompt)) {
           streamedText += this.normalizeStreamChunk(chunk);
           this.setMessageContent(modelMessage, "model", streamedText);
+          const now = performance.now();
+          if (now - lastMetricsAt >= 120) {
+            this.updateLiveGenerationMetrics({
+              startedAt,
+              inputTokens,
+              inputApproximate,
+              beforeContextUsage,
+              generatedText: streamedText,
+            });
+            lastMetricsAt = now;
+          }
         }
+        this.updateLiveGenerationMetrics({
+          startedAt,
+          inputTokens,
+          inputApproximate,
+          beforeContextUsage,
+          generatedText: streamedText,
+        });
+        answerText = streamedText;
       } else {
-        const result = await this.session.prompt(prompt);
-        this.setMessageContent(modelMessage, "model", result);
+        const latencyTimerId = window.setInterval(() => {
+          this.updateLiveGenerationMetrics({
+            startedAt,
+            inputTokens,
+            inputApproximate,
+            beforeContextUsage,
+            generatedText: answerText,
+          });
+        }, 150);
+        try {
+          const result = await this.session.prompt(prompt);
+          this.setMessageContent(modelMessage, "model", result);
+          answerText = result;
+        } finally {
+          window.clearInterval(latencyTimerId);
+        }
       }
 
+      const responseMetrics = await this.updateResponseMetrics({
+        prompt,
+        answerText,
+        startedAt,
+        beforeContextUsage,
+      });
+      this.applyResponseToSessionTotals(responseMetrics);
       this.statusEl.textContent = "Готово. Можете отправить новое сообщение.";
     } catch (error) {
       this.setMessageContent(
@@ -634,9 +1122,12 @@ class BndbyChatbot extends HTMLElement {
         "model",
         `Ошибка генерации: ${error instanceof Error ? error.message : String(error)}`
       );
+      this.updateMetrics({ latencyMs: performance.now() - startedAt });
+      this.setContextMetric(this.getSessionContextUsage(), this.getSessionContextWindow());
       this.statusEl.textContent = "Произошла ошибка во время генерации.";
     } finally {
       this.setUiEnabled(true);
+      this.resetSessionBtn.disabled = false;
       this.inputEl.focus();
     }
   }
